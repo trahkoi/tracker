@@ -1,0 +1,200 @@
+@page "/habit-tracker"
+@model Tracker.Web.Pages.HabitTrackerModel
+@{
+    Layout = null;
+}
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Habit Tracker Calendar</title>
+    <style>
+      :root {
+        --bg: #060d1d;
+        --bg-soft: #0b1427;
+        --text: #d2d9e7;
+        --border: #25365a;
+        --border-soft: #1a2743;
+        --active: #5fd5aa;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+        color: var(--text);
+        background: radial-gradient(circle at 50% -20%, #14254b, var(--bg) 45%);
+        min-height: 100vh;
+      }
+
+      .wrap {
+        width: min(1240px, 100% - 16px);
+        margin: 14px auto 24px;
+      }
+
+      .toolbar {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 10px;
+      }
+
+      .nav-btn {
+        border: 1px solid var(--border);
+        background: var(--bg-soft);
+        color: var(--text);
+        border-radius: 10px;
+        text-decoration: none;
+        padding: 6px 10px;
+        line-height: 1;
+      }
+
+      .month-label {
+        min-width: 180px;
+        text-align: center;
+        font-size: 1.05rem;
+        font-weight: 700;
+      }
+
+      .weekdays {
+        display: grid;
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        gap: 10px;
+        margin-bottom: 8px;
+      }
+
+      .weekday {
+        color: #97a3bc;
+        font-size: 1.15rem;
+        text-align: center;
+        padding: 2px 0;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .day {
+        min-height: 176px;
+        border-radius: 18px;
+        border: 2px solid var(--border-soft);
+        background: linear-gradient(180deg, #050d21, #020918 70%);
+        padding: 10px 11px;
+        position: relative;
+      }
+
+      .day.muted {
+        background: linear-gradient(180deg, #071127, #040a1b);
+        border-color: #17233d;
+      }
+
+      .day.done {
+        border-color: var(--active);
+        box-shadow: inset 0 0 0 2px rgba(95, 213, 170, 0.32);
+      }
+
+      .day.today {
+        outline: 2px solid #2e66d6;
+        outline-offset: -2px;
+      }
+
+      .day-number {
+        font-size: 1.08rem;
+        font-weight: 600;
+        color: #d4dceb;
+      }
+
+      .day.muted .day-number { color: #66728a; }
+
+      .dots {
+        position: absolute;
+        right: 10px;
+        top: 10px;
+        display: flex;
+        gap: 6px;
+      }
+
+      .dot {
+        width: 30px;
+        height: 30px;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: 2px solid transparent;
+        font-weight: 700;
+        font-size: 0.74rem;
+      }
+
+      .dot.push {
+        background: rgba(72, 180, 255, 0.15);
+        color: #92d3ff;
+        border-color: rgba(72, 180, 255, 0.55);
+      }
+
+      .dot.wcs {
+        background: rgba(95, 213, 170, 0.15);
+        color: #93f0cf;
+        border-color: rgba(95, 213, 170, 0.55);
+      }
+
+      .dot.veg {
+        background: rgba(245, 158, 11, 0.16);
+        color: #ffd490;
+        border-color: rgba(245, 158, 11, 0.58);
+        font-size: 0.92rem;
+      }
+
+      @@media (max-width: 980px) {
+        .day { min-height: 140px; }
+        .weekday { font-size: 1rem; }
+      }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+      <div class="toolbar">
+        <a class="nav-btn" asp-page="/HabitTracker" asp-route-year="@Model.PrevYear" asp-route-month="@Model.PrevMonth">◀</a>
+        <div class="month-label">@Model.MonthLabel</div>
+        <a class="nav-btn" asp-page="/HabitTracker" asp-route-year="@Model.NextYear" asp-route-month="@Model.NextMonth">▶</a>
+        <a class="nav-btn" asp-page="/HabitTracker">Today</a>
+      </div>
+
+      <div class="weekdays">
+        @foreach (var weekday in Model.Weekdays)
+        {
+            <div class="weekday">@weekday</div>
+        }
+      </div>
+
+      <div class="grid">
+        @foreach (var day in Model.Days)
+        {
+            var dayClass = $"day {(day.InMonth ? string.Empty : "muted")} {(day.InMonth && day.AnyDone ? "done" : string.Empty)} {(day.IsToday ? "today" : string.Empty)}";
+            <div class="@dayClass">
+                <div class="day-number">@day.Date.Day</div>
+                <div class="dots">
+                    @if (day.InMonth && day.PushupsCount > 0)
+                    {
+                        <span class="dot push" title="@($"{day.PushupsCount} push-ups")">@day.PushupsCount</span>
+                    }
+                    @if (day.InMonth && day.WcsPractice)
+                    {
+                        <span class="dot wcs" title="West Coast Swing practiced">W</span>
+                    }
+                    @if (day.InMonth && day.VeggiesEnough)
+                    {
+                        <span class="dot veg" title="Ate enough veggies">🥦</span>
+                    }
+                </div>
+            </div>
+        }
+      </div>
+    </div>
+</body>
+</html>

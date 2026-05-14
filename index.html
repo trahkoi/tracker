@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Habit Tracker Calendar</title>
+    <style>
+      :root {
+        --bg: #060d1d;
+        --bg-soft: #0b1427;
+        --card: #040b1f;
+        --card-muted: #071127;
+        --text: #d2d9e7;
+        --muted: #808aa0;
+        --border: #25365a;
+        --border-soft: #1a2743;
+        --active: #5fd5aa;
+        --push: #48b4ff;
+        --wcs: #5fd5aa;
+        --veg: #f59e0b;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica,
+          Arial;
+        color: var(--text);
+        background: radial-gradient(circle at 50% -20%, #14254b, var(--bg) 45%);
+        min-height: 100vh;
+      }
+
+      .wrap {
+        width: min(1240px, 100% - 16px);
+        margin: 14px auto 24px;
+      }
+
+      .toolbar {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 10px;
+      }
+
+      button {
+        border: 1px solid var(--border);
+        background: var(--bg-soft);
+        color: var(--text);
+        border-radius: 10px;
+        cursor: pointer;
+        padding: 6px 10px;
+      }
+
+      .month-label {
+        min-width: 180px;
+        text-align: center;
+        font-size: 1.05rem;
+        font-weight: 700;
+      }
+
+      .weekdays {
+        display: grid;
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        gap: 10px;
+        margin-bottom: 8px;
+      }
+
+      .weekday {
+        color: #97a3bc;
+        font-size: 1.15rem;
+        text-align: center;
+        padding: 2px 0;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .day {
+        min-height: 176px;
+        border-radius: 18px;
+        border: 2px solid var(--border-soft);
+        background: linear-gradient(180deg, #050d21, #020918 70%);
+        padding: 10px 11px;
+        position: relative;
+      }
+
+      .day.muted {
+        background: linear-gradient(180deg, #071127, #040a1b);
+        border-color: #17233d;
+      }
+
+      .day.done {
+        border-color: var(--active);
+        box-shadow: inset 0 0 0 2px rgba(95, 213, 170, 0.32);
+      }
+
+      .day.today {
+        outline: 2px solid #2e66d6;
+        outline-offset: -2px;
+      }
+
+      .day-number {
+        font-size: 1.08rem;
+        font-weight: 600;
+        color: #d4dceb;
+      }
+
+      .day.muted .day-number {
+        color: #66728a;
+      }
+
+      .dots {
+        position: absolute;
+        right: 10px;
+        top: 10px;
+        display: flex;
+        gap: 6px;
+      }
+
+      .dot {
+        width: 30px;
+        height: 30px;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: 2px solid transparent;
+        font-weight: 700;
+        font-size: 0.74rem;
+      }
+
+      .dot.push {
+        background: rgba(72, 180, 255, 0.15);
+        color: #92d3ff;
+        border-color: rgba(72, 180, 255, 0.55);
+      }
+
+      .dot.wcs {
+        background: rgba(95, 213, 170, 0.15);
+        color: #93f0cf;
+        border-color: rgba(95, 213, 170, 0.55);
+      }
+
+      .dot.veg {
+        background: rgba(245, 158, 11, 0.16);
+        color: #ffd490;
+        border-color: rgba(245, 158, 11, 0.58);
+        font-size: 0.92rem;
+      }
+
+      @media (max-width: 980px) {
+        .day {
+          min-height: 140px;
+        }
+        .weekday {
+          font-size: 1rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="toolbar">
+        <button id="prevMonth">◀</button>
+        <div id="monthLabel" class="month-label"></div>
+        <button id="nextMonth">▶</button>
+        <button id="goToday">Today</button>
+      </div>
+
+      <div id="weekdayRow" class="weekdays"></div>
+      <div id="calendarGrid" class="grid"></div>
+    </div>
+
+    <script>
+      const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+      const weekdayRow = document.getElementById("weekdayRow");
+      const calendarGrid = document.getElementById("calendarGrid");
+      const monthLabel = document.getElementById("monthLabel");
+
+      // Simple extensible data model
+      const habits = [
+        { id: "pushups", name: "Push-ups", type: "count", unit: "reps", active: true },
+        { id: "wcs", name: "West Coast Swing", type: "boolean", active: true },
+        { id: "veggies", name: "Veggies (enough)", type: "boolean", active: true },
+      ];
+
+      const logs = []; // { date, habitId, valueBoolean?, valueNumber?, updatedAt }
+
+      const now = new Date();
+      let viewYear = now.getFullYear();
+      let viewMonth = now.getMonth();
+
+      weekdays.forEach((d) => {
+        const el = document.createElement("div");
+        el.className = "weekday";
+        el.textContent = d;
+        weekdayRow.appendChild(el);
+      });
+
+      function dateKey(date) {
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, "0");
+        const d = String(date.getDate()).padStart(2, "0");
+        return `${y}-${m}-${d}`;
+      }
+
+      function toMondayIndex(jsDay) {
+        return (jsDay + 6) % 7;
+      }
+
+      function setHabitLog(date, habitId, value) {
+        const key = typeof date === "string" ? date : dateKey(date);
+        const habit = habits.find((h) => h.id === habitId);
+        if (!habit) return;
+
+        const index = logs.findIndex((l) => l.date === key && l.habitId === habitId);
+        const base = {
+          date: key,
+          habitId,
+          updatedAt: new Date().toISOString(),
+        };
+
+        const record =
+          habit.type === "count"
+            ? { ...base, valueNumber: Number(value) || 0 }
+            : { ...base, valueBoolean: Boolean(value) };
+
+        if (index >= 0) logs[index] = record;
+        else logs.push(record);
+      }
+
+      function getHabitLog(date, habitId) {
+        const key = typeof date === "string" ? date : dateKey(date);
+        return logs.find((l) => l.date === key && l.habitId === habitId);
+      }
+
+      function getDayRecord(date) {
+        const pushupsLog = getHabitLog(date, "pushups");
+        const wcsLog = getHabitLog(date, "wcs");
+        const veggiesLog = getHabitLog(date, "veggies");
+
+        return {
+          pushupsCount: pushupsLog?.valueNumber || 0,
+          wcsPractice: Boolean(wcsLog?.valueBoolean),
+          veggiesEnough: Boolean(veggiesLog?.valueBoolean),
+        };
+      }
+
+      // Read-only seeded data for the past month (with a realistic done/missed pattern)
+      function seedLast35Days() {
+        const base = new Date();
+        for (let i = 0; i < 35; i++) {
+          const d = new Date(base);
+          d.setDate(base.getDate() - i);
+
+          const didPushups = i % 6 !== 0;
+          const didWcs = i % 4 !== 1;
+          const didVeggies = i % 5 !== 2;
+
+          setHabitLog(d, "pushups", didPushups ? 20 + ((i * 9) % 36) : 0);
+          setHabitLog(d, "wcs", didWcs);
+          setHabitLog(d, "veggies", didVeggies);
+        }
+      }
+
+      function createDot(cls, text, title) {
+        const dot = document.createElement("span");
+        dot.className = `dot ${cls}`;
+        dot.textContent = text;
+        dot.title = title;
+        return dot;
+      }
+
+      function renderCalendar(year, month) {
+        monthLabel.textContent = new Date(year, month, 1).toLocaleDateString(undefined, {
+          month: "long",
+          year: "numeric",
+        });
+
+        calendarGrid.innerHTML = "";
+
+        const firstDay = new Date(year, month, 1);
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const offset = toMondayIndex(firstDay.getDay());
+        const totalCells = Math.ceil((offset + daysInMonth) / 7) * 7;
+
+        for (let i = 0; i < totalCells; i++) {
+          const dayNum = i - offset + 1;
+          const cellDate = new Date(year, month, dayNum);
+          const inMonth = dayNum >= 1 && dayNum <= daysInMonth;
+
+          const rec = getDayRecord(cellDate);
+          const donePush = rec.pushupsCount > 0;
+          const doneWcs = rec.wcsPractice;
+          const doneVeg = rec.veggiesEnough;
+          const anyDone = donePush || doneWcs || doneVeg;
+
+          const card = document.createElement("div");
+          card.className = `day ${inMonth ? "" : "muted"} ${anyDone && inMonth ? "done" : ""}`.trim();
+
+          const today = new Date();
+          if (
+            cellDate.getDate() === today.getDate() &&
+            cellDate.getMonth() === today.getMonth() &&
+            cellDate.getFullYear() === today.getFullYear()
+          ) {
+            card.classList.add("today");
+          }
+
+          const dayEl = document.createElement("div");
+          dayEl.className = "day-number";
+          dayEl.textContent = cellDate.getDate();
+          card.appendChild(dayEl);
+
+          const dots = document.createElement("div");
+          dots.className = "dots";
+          if (donePush && inMonth) {
+            dots.appendChild(createDot("push", String(rec.pushupsCount), `${rec.pushupsCount} push-ups`));
+          }
+          if (doneWcs && inMonth) {
+            dots.appendChild(createDot("wcs", "W", "West Coast Swing practiced"));
+          }
+          if (doneVeg && inMonth) {
+            dots.appendChild(createDot("veg", "🥦", "Ate enough veggies"));
+          }
+          card.appendChild(dots);
+
+          calendarGrid.appendChild(card);
+        }
+      }
+
+      document.getElementById("prevMonth").addEventListener("click", () => {
+        viewMonth--;
+        if (viewMonth < 0) {
+          viewMonth = 11;
+          viewYear--;
+        }
+        renderCalendar(viewYear, viewMonth);
+      });
+
+      document.getElementById("nextMonth").addEventListener("click", () => {
+        viewMonth++;
+        if (viewMonth > 11) {
+          viewMonth = 0;
+          viewYear++;
+        }
+        renderCalendar(viewYear, viewMonth);
+      });
+
+      document.getElementById("goToday").addEventListener("click", () => {
+        const t = new Date();
+        viewYear = t.getFullYear();
+        viewMonth = t.getMonth();
+        renderCalendar(viewYear, viewMonth);
+      });
+
+      seedLast35Days();
+      renderCalendar(viewYear, viewMonth);
+    </script>
+  </body>
+</html>
