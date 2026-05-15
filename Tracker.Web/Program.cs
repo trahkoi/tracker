@@ -58,5 +58,6 @@ app.MapRazorPages()
    .WithStaticAssets();
 
 app.MapGet("/", () => Results.Redirect("/habit-tracker"));
+app.MapGet("/up", () => Results.Ok());
 
 app.Run();
