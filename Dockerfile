@@ -13,6 +13,9 @@ WORKDIR /app
 
 COPY --from=build /app/publish .
 
+RUN mkdir -p /storage && chown -R $APP_UID:$APP_UID /storage
+VOLUME ["/storage"]
+
 EXPOSE 80
 ENV ASPNETCORE_URLS=http://+:80
 

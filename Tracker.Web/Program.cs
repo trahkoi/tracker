@@ -22,8 +22,16 @@ if (builder.Environment.IsDevelopment())
 }
 else
 {
+    var databasePath = builder.Configuration["Database:Path"] ?? "/storage/tracker.db";
+    var directory = Path.GetDirectoryName(databasePath);
+
+    if (!string.IsNullOrWhiteSpace(directory))
+    {
+        Directory.CreateDirectory(directory);
+    }
+
     builder.Services.AddDbContext<TrackerDbContext>(options =>
-        options.UseSqlite("Data Source=tracker.db"));
+        options.UseSqlite($"Data Source={databasePath}"));
 }
 
 var app = builder.Build();
